@@ -1,8 +1,6 @@
 @php
     // TODO: need to pass width from controller
 
-    use Illuminate\Support\Facades\Log;
-
     $page_margin = 18;
     $footer_height = 20;
 
@@ -12,8 +10,7 @@
 
     $today = date("F Y");
 
-    define('LINES_PER_COLUMN', get_lines_per_column($height));
-    echo LINES_PER_COLUMN;
+    $helper = new App\BRAI($height);
 @endphp
     <!DOCTYPE html>
 <html lang="en">
@@ -24,9 +21,10 @@
     <style>
         @page {
             margin: {{ $page_margin }}px;
-            @if ($numbering !== false)
-                 margin-bottom: {{ $footer_height + $page_margin }}px;
-            @endif
+            @if ($numbering !== FALSE)
+                  margin-bottom: {{ $footer_height + $page_margin }}px;
+        @endif
+
         }
 
         body {
@@ -43,6 +41,7 @@
             margin: 0 0 10px;
             padding-bottom: 4px;
         }
+
         h3 {
             font-weight: normal;
             font-size: 11px;
@@ -55,6 +54,7 @@
         .legend:after {
             page-break-after: always;
         }
+
         .legend > div {
             font-size: 14px;
             border-bottom: 1px solid #ddd;
@@ -62,9 +62,11 @@
             padding-top: 6px;
             width: 50%;
         }
+
         .legend > div:last-child {
             border-bottom: none;
         }
+
         .legend > div span {
             display: inline-block;
         }
@@ -77,16 +79,19 @@
             vertical-align: top;
             width: 100%;
         }
+
         .meeting td {
             margin: 0;
             padding: 0;
             vertical-align: top;
         }
+
         .meeting .time {
             width: 65px;
             text-align: right;
             padding-right: 5px;
         }
+
         .meeting .name {
             font-weight: bold;
         }
@@ -98,6 +103,7 @@
             padding: 4px;
             text-align: left;
         }
+
         .brai-day h1 {
             font-size: 20px;
         }
@@ -109,6 +115,7 @@
             position: fixed;
             right: 0;
         }
+
         footer::after {
             border-top: 0.5px solid black;
             content: counter(page);
@@ -127,9 +134,11 @@
             text-decoration-thickness: 2px;
             margin-bottom: 1px;
         }
+
         .brai-day-name {
             font-weight: bold;
         }
+
         .brai-day-types {
             margin-bottom: 10px;
         }
@@ -141,9 +150,11 @@
             clear: both;
             page-break-after: always;
         }
+
         .row:last-child {
             page-break-after: unset;
         }
+
         .column {
             float: left;
             width: 30%;
@@ -154,7 +165,7 @@
 </head>
 
 <body>
-@if ($numbering !== false)
+@if ($numbering !== FALSE)
     <footer>{{ $today  }}</footer>
 @endif
 <main>
@@ -173,88 +184,97 @@
                     $num_column_lines = 0;
                 @endphp
             @endif
-            <div class="row"><h1 class="brai-day">{{ strtoupper($day) }} MEETINGS</h1><div class="column">
-            @php
-                list ($row, $column, $num_column_lines) = check_new_row_column($row, $column, $num_column_lines, LINES_PER_COLUMN);
-                $num_column_lines++;
-            @endphp
-
-            @foreach ($regions as $region => $meetings)
-                @php
-                    list ($row, $column, $num_column_lines) = check_new_row_column($row, $column, $num_column_lines, LINES_PER_COLUMN, $day);
-                    echo '<div class="region">';
-                    if ($region) {
-                        echo '<h3>' . $region . '</h3></div>';
+            <div class="row"><h1 class="brai-day">{{ strtoupper($day) }} MEETINGS</h1>
+                <div class="column">
+                    @php
+                        [$row, $column, $num_column_lines] = $helper->checkNewRowColumn($row, $column, $num_column_lines, $helper->getLinesPerColumn());
                         $num_column_lines++;
-                    }
-                @endphp
-
-                @foreach ($meetings as $meeting)
-                    @php
-                        $num_meeting_lines = get_num_meeting_lines($meeting);
-                        list ($row, $column, $num_column_lines) = check_new_row_column($row, $column, $num_column_lines, LINES_PER_COLUMN, $day);
-                        $num_column_lines += $num_meeting_lines;
                     @endphp
-                    @include('meeting', compact('meeting', 'region'))
-                @endforeach
-            @endforeach
-        @endforeach
-    </div></div>
-    @elseif ($group_by === 'region-day')
-        @foreach ($regions as $region => $days)
-            @if (!$loop->first)
-                    <?php list ($row, $column, $num_column_lines) = check_new_row_column($row, $column, $num_column_lines); ?>
-            @else
-                <div class="row"><div class="column"><div class="region"><h1>{{ $region }}</h1></div>
-            @endif
-                <?php $num_column_lines++; ?>
-            @foreach ($days as $day => $meetings)
-                @php
-                    list ($row, $column, $num_column_lines) = check_new_row_column($row, $column, $num_column_lines);
-                    $num_column_lines++;
-                @endphp
-                <h3>{{ $day }}</h3>
-                @foreach ($meetings as $meeting)
-                    @php
-                        $num_meeting_lines = get_num_meeting_lines($meeting);
-                        list ($row, $column, $num_column_lines) = check_new_row_column($row, $column, $num_column_lines);
-                        $num_column_lines += $num_meeting_lines;
-                    @endphp
-                    @include('meeting', compact('meeting', 'region'))
-                @endforeach
-            @endforeach
-        @endforeach
-        </div></div>
-    @else
-        @foreach ($days as $day => $meetings)
-            @if ($loop->first)
-                @php
-                    printf('<div class="row"><div class="column"><h1 class="brai-day">%s MEETINGS</h1>', strtoupper($day));
-                    $column = 1;
-                    $num_column_lines = 1;
-                @endphp
-            @else
-                @php
-                    printf('<h1 class="brai-day">%s MEETINGS</h1>', strtoupper($day));
-                    $num_column_lines++;
-                @endphp
-            @endif
 
-            @php
-                list ($row, $column, $num_column_lines) = check_new_row_column($row, $column, $num_column_lines, LINES_PER_COLUMN);
-                $num_column_lines++;
-            @endphp
-            @foreach ($meetings as $meeting)
-                @php
-                    $num_meeting_lines = get_num_meeting_lines($meeting);
-                    list ($row, $column, $num_column_lines) = check_new_row_column($row, $column, $num_column_lines, LINES_PER_COLUMN, $day);
-                    $num_column_lines += $num_meeting_lines;
-                @endphp
-                @include('brai-meeting', compact('meeting'))
-            @endforeach
-        @endforeach
-        <?php echo "</div></div>"; ?>
-    @endif
+                    @foreach ($regions as $region => $meetings)
+                        @php
+                            [$row, $column, $num_column_lines] = $helper->checkNewRowColumn($row, $column, $num_column_lines, $helper->getLinesPerColumn(), $day);
+                            echo '<div class="region">';
+                            if ($region) {
+                                echo '<h3>' . $region . '</h3></div>';
+                                $num_column_lines++;
+                            }
+                        @endphp
+
+                        @foreach ($meetings as $meeting)
+                            @php
+                                $num_meeting_lines = $helper->getNumMeetingLines($meeting);
+                                [$row, $column, $num_column_lines] = $helper->checkNewRowColumn($row, $column, $num_column_lines, $helper->getLinesPerColumn(), $day);
+                                $num_column_lines += $num_meeting_lines;
+                            @endphp
+                            @include('meeting', compact('meeting', 'region'))
+                        @endforeach
+                    @endforeach
+                    @endforeach
+                </div>
+            </div>
+            @elseif ($group_by === 'region-day')
+                @foreach ($regions as $region => $days)
+                    @if (!$loop->first)
+              <?php [
+              $row,
+              $column,
+              $num_column_lines
+            ] = $helper->checkNewRowColumn($row, $column, $num_column_lines); ?>
+                    @else
+                        <div class="row">
+                            <div class="column">
+                                <div class="region"><h1>{{ $region }}</h1></div>
+                                @endif
+                                <?php $num_column_lines++; ?>
+                                @foreach ($days as $day => $meetings)
+                                    @php
+                                        [$row, $column, $num_column_lines] = $helper->checkNewRowColumn($row, $column, $num_column_lines);
+                                        $num_column_lines++;
+                                    @endphp
+                                    <h3>{{ $day }}</h3>
+                                    @foreach ($meetings as $meeting)
+                                        @php
+                                            $num_meeting_lines = $helper->getNumMeetingLines($meeting);
+                                            [$row, $column, $num_column_lines] = $helper->checkNewRowColumn($row, $column, $num_column_lines);
+                                            $num_column_lines += $num_meeting_lines;
+                                        @endphp
+                                        @include('meeting', compact('meeting', 'region'))
+                                    @endforeach
+                                @endforeach
+                                @endforeach
+                            </div>
+                        </div>
+                        @else
+                            @foreach ($days as $day => $meetings)
+                                @if ($loop->first)
+                                    @php
+                                        printf('<div class="row"><div class="column"><h1 class="brai-day">%s MEETINGS</h1>', strtoupper($day));
+                                        $column = 1;
+                                        $num_column_lines = 1;
+                                    @endphp
+                                @else
+                                    @php
+                                        printf('<h1 class="brai-day">%s MEETINGS</h1>', strtoupper($day));
+                                        $num_column_lines++;
+                                    @endphp
+                                @endif
+
+                                @php
+                                    [$row, $column, $num_column_lines] = $helper->checkNewRowColumn($row, $column, $num_column_lines, $helper->getLinesPerColumn());
+                                    $num_column_lines++;
+                                @endphp
+                                @foreach ($meetings as $meeting)
+                                    @php
+                                        $num_meeting_lines = $helper->getNumMeetingLines($meeting);
+                                        [$row, $column, $num_column_lines] = $helper->checkNewRowColumn($row, $column, $num_column_lines, $helper->getLinesPerColumn(), $day);
+                                        $num_column_lines += $num_meeting_lines;
+                                    @endphp
+                                    @include('brai-meeting', compact('meeting'))
+                                @endforeach
+                            @endforeach
+                <?php echo "</div></div>"; ?>
+                        @endif
 </main>
 </body>
 </html>
